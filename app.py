@@ -7,6 +7,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import streamlit as st
 
+from analytics import log_usage_event
 from trimline_engine import (
     DEFAULT_PARAMETERS,
     CalculationResult,
@@ -25,6 +26,95 @@ st.caption(
     "Enter the profile and manufacturing values, check the calculated "
     "section, then generate and download the DXF and section PDF."
 )
+
+
+APP_REVISION = "2026-07-27-GOOGLE-SHEETS-ANALYTICS-V1"
+
+
+def _current_user_identity() -> tuple[str, str]:
+    """
+    Return the authenticated user's name and email when login is configured.
+
+    Until login is added, these values remain blank.
+    """
+    try:
+        if st.user.is_logged_in:
+            name = str(getattr(st.user, "name", "") or "")
+            email = str(getattr(st.user, "email", "") or "")
+            return name, email
+    except Exception:
+        pass
+
+    return "", ""
+
+
+def _usage_payload(
+    *,
+    result: CalculationResult | None,
+    parameters: dict[str, float],
+    file_name: str,
+    dxf_generated: bool,
+    pdf_generated: bool,
+    success: bool,
+    error_message: str = "",
+) -> dict[str, object]:
+    user_name, user_email = _current_user_identity()
+
+    return {
+        "user_name": user_name,
+        "user_email": user_email,
+        "file_name": file_name,
+        "A": parameters["A"],
+        "B": parameters["B"],
+        "C": parameters["C"],
+        "D": parameters["D"],
+        "E": parameters["E"],
+        "F": result.f if result is not None else "",
+        "G": parameters["G"],
+        "H": parameters["H"],
+        "roof_pitch": parameters["ROOF_PITCH"],
+        "gutter_arm_depth": parameters["GUTTER_ARM_DEPTH"],
+        "angle_bc": result.angle_bc if result is not None else "",
+        "angle_cd": parameters["ANGLE_CD"],
+        "angle_de": parameters["ANGLE_DE"],
+        "angle_ef": parameters["ANGLE_EF"],
+        "angle_fg": result.angle_fg if result is not None else "",
+        "girth": result.girth if result is not None else "",
+        "dxf_generated_yes_no": "Yes" if dxf_generated else "No",
+        "pdf_generated_yes_no": "Yes" if pdf_generated else "No",
+        "success": "Yes" if success else "No",
+        "error_message": error_message,
+        "app_revision": APP_REVISION,
+    }
+
+
+def _record_usage(
+    *,
+    result: CalculationResult | None,
+    parameters: dict[str, float],
+    file_name: str,
+    dxf_generated: bool,
+    pdf_generated: bool,
+    success: bool,
+    error_message: str = "",
+) -> None:
+    saved, logging_error = log_usage_event(
+        _usage_payload(
+            result=result,
+            parameters=parameters,
+            file_name=file_name,
+            dxf_generated=dxf_generated,
+            pdf_generated=pdf_generated,
+            success=success,
+            error_message=error_message,
+        )
+    )
+
+    if not saved:
+        st.warning(
+            "The usage record could not be saved to Google Sheets: "
+            f"{logging_error}"
+        )
 
 
 def number_field(
@@ -811,35 +901,86 @@ except Exception as exc:
 
 if submitted:
     if preview is None:
+        error_message = "Invalid profile parameters."
         st.error("Correct the invalid parameters before generating the DXF.")
+
+        _record_usage(
+            result=None,
+            parameters=parameters,
+            file_name=output_name,
+            dxf_generated=False,
+            pdf_generated=False,
+            success=False,
+            error_message=error_message,
+        )
     else:
+        dxf_generated = False
+        pdf_generated = False
+        generated = preview
+        safe_name = output_name
+
         try:
             with st.spinner("Generating DXF and section PDF..."):
                 dxf_bytes, generated, safe_name = generate_dxf(
                     parameters,
                     output_name,
                 )
+                dxf_generated = True
+
                 pdf_bytes, pdf_name = generate_section_pdf(
                     generated,
                     parameters,
                     safe_name,
                 )
+                pdf_generated = True
 
             st.session_state["generated_dxf"] = dxf_bytes
             st.session_state["generated_name"] = safe_name
             st.session_state["generated_pdf"] = pdf_bytes
             st.session_state["generated_pdf_name"] = pdf_name
+
+            _record_usage(
+                result=generated,
+                parameters=parameters,
+                file_name=safe_name,
+                dxf_generated=dxf_generated,
+                pdf_generated=pdf_generated,
+                success=True,
+            )
+
             st.success("DXF and section PDF generated successfully.")
 
         except ModuleNotFoundError as exc:
-            st.error(
+            error_message = (
                 "A required Python package is missing. Install the packages "
                 "listed in requirements.txt."
             )
+
+            _record_usage(
+                result=generated,
+                parameters=parameters,
+                file_name=safe_name,
+                dxf_generated=dxf_generated,
+                pdf_generated=pdf_generated,
+                success=False,
+                error_message=str(exc),
+            )
+
+            st.error(error_message)
             st.exception(exc)
 
         except Exception as exc:
-            st.error(f"DXF generation failed: {exc}")
+            _record_usage(
+                result=generated,
+                parameters=parameters,
+                file_name=safe_name,
+                dxf_generated=dxf_generated,
+                pdf_generated=pdf_generated,
+                success=False,
+                error_message=str(exc),
+            )
+
+            st.error(f"Drawing generation failed: {exc}")
             st.exception(exc)
 
 
@@ -876,6 +1017,7 @@ with st.expander("Deployment and file information"):
         This application requires the following files in the same folder:
 
         - `app.py`
+        - `analytics.py`
         - `trimline_engine.py`
         - `trimline_generator_template.py`
         - `requirements.txt`
