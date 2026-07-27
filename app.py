@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from datetime import date
 from io import BytesIO
 from math import hypot
 from pathlib import Path
+from textwrap import fill
 
 import matplotlib.pyplot as plt
 import streamlit as st
+from matplotlib.patches import Rectangle
 
 from analytics import log_usage_event
 from trimline_engine import (
@@ -17,18 +20,116 @@ from trimline_engine import (
 
 
 st.set_page_config(
-    page_title="Parametric Gutter Drawing Generator",
+    page_title="Trimline Gutter Section Generator",
     layout="wide",
 )
+
+BRAND_BLUE = "#3B7CC2"
+BRAND_CHARCOAL = "#5B5356"
+BRAND_RED = "#EF4D2F"
+BRAND_LIGHT = "#F5F7FA"
+
+COMPANY_NAME = "ArchSteel by ArcelorMittal Building Solutions"
+COMPANY_CONTACT_LINES = [
+    "Lamont Business Park, Lyons Road, Trafford Park, Manchester M17 1RN",
+    "Units 2 & 3 Orion Trade Centre, Off Guinness Circle, Manchester M17 1EB",
+]
+COMPANY_WEBSITE = "archsteel.co.uk"
+
+ASSET_DIR = Path(__file__).resolve().parent / "assets"
+ASL_LOGO_PATH = ASSET_DIR / "asl_logo.png"
+ARCELOR_LOGO_PATH = ASSET_DIR / "arcelormittal_logo.png"
+
+
+def _inject_brand_css() -> None:
+    """Apply a light corporate style to the Streamlit page."""
+    st.markdown(
+        f"""
+        <style>
+            .stApp {{
+                background: white;
+            }}
+            .brand-shell {{
+                border: 1px solid #d9dfe7;
+                border-radius: 16px;
+                padding: 1rem 1.2rem 1rem 1.2rem;
+                background: linear-gradient(90deg, {BRAND_LIGHT} 0%, #ffffff 100%);
+                margin-bottom: 1rem;
+            }}
+            .brand-kicker {{
+                font-size: 0.9rem;
+                font-weight: 600;
+                color: {BRAND_RED};
+                letter-spacing: 0.02em;
+                margin-bottom: 0.15rem;
+            }}
+            .brand-title {{
+                font-size: 2rem;
+                font-weight: 700;
+                color: {BRAND_CHARCOAL};
+                line-height: 1.1;
+                margin-bottom: 0.35rem;
+            }}
+            .brand-subtitle {{
+                font-size: 0.98rem;
+                color: {BRAND_CHARCOAL};
+                opacity: 0.9;
+                line-height: 1.35;
+            }}
+            .meta-card {{
+                border: 1px solid #d9dfe7;
+                border-radius: 14px;
+                background: white;
+                padding: 0.9rem 1rem;
+                margin-bottom: 0.75rem;
+            }}
+            .meta-card h4 {{
+                margin: 0 0 0.35rem 0;
+                color: {BRAND_BLUE};
+            }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _show_brand_header() -> None:
+    """Display a simple corporate header with both company logos."""
+    logo_left, title_col, logo_right = st.columns([1.25, 2.7, 1.1])
+
+    with logo_left:
+        if ASL_LOGO_PATH.exists():
+            st.image(str(ASL_LOGO_PATH), use_container_width=True)
+
+    with title_col:
+        st.markdown(
+            f"""
+            <div class="brand-shell">
+                <div class="brand-kicker">ArchSteel / ArcelorMittal Building Solutions</div>
+                <div class="brand-title">Trimline Gutter Section Generator</div>
+                <div class="brand-subtitle">
+                    Branded technical output with project details, requester information,
+                    DXF download and a section PDF formatted for issue.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+    with logo_right:
+        if ARCELOR_LOGO_PATH.exists():
+            st.image(str(ARCELOR_LOGO_PATH), use_container_width=True)
+
+
+_inject_brand_css()
 
 
 def _show_login_screen() -> None:
     """Block access to the generator until Google login succeeds."""
-    st.title("Parametric Gutter Drawing Generator")
-    st.caption("Sign in with Google to use the DXF and PDF generator.")
+    _show_brand_header()
     st.info(
-        "Only Google accounts authorised in Google Auth Platform can "
-        "use the application while OAuth remains in Testing mode."
+        "Sign in with Google to use the generator. While OAuth remains in "
+        "Testing mode, access is limited to the approved Google accounts."
     )
 
     if st.button(
@@ -44,30 +145,36 @@ if not st.user.is_logged_in:
     st.stop()
 
 
-header_column, account_column = st.columns([4, 1])
+signed_in_name = str(getattr(st.user, "name", "") or "")
+signed_in_email = str(getattr(st.user, "email", "") or "")
 
-with header_column:
-    st.title("Parametric Gutter Drawing Generator")
+_show_brand_header()
+
+info_column, account_column = st.columns([4, 1])
+
+with info_column:
     st.caption(
-        "Enter the profile and manufacturing values, check the calculated "
-        "section, then generate and download the DXF and section PDF."
+        "Enter the project information and the profile values, review the "
+        "preview, then generate the DXF and the branded section PDF."
     )
 
 with account_column:
-    signed_in_name = str(getattr(st.user, "name", "") or "")
-    signed_in_email = str(getattr(st.user, "email", "") or "")
-
-    st.caption("Signed in as")
-    st.write(signed_in_name or signed_in_email)
-
-    if signed_in_name and signed_in_email:
-        st.caption(signed_in_email)
+    st.markdown(
+        f"""
+        <div class="meta-card">
+            <h4>Signed in</h4>
+            <div><strong>{signed_in_name or signed_in_email or "User"}</strong></div>
+            <div>{signed_in_email or ""}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     if st.button("Log out", use_container_width=True):
         st.logout()
 
 
-APP_REVISION = "2026-07-27-FULL-LOGIN-SHEETS-V1"
+APP_REVISION = "2026-07-27-BRANDED-PDF-V1"
 
 
 def _current_user_identity() -> tuple[str, str]:
@@ -144,6 +251,64 @@ def _record_usage(
             "The usage record could not be saved to Google Sheets: "
             f"{logging_error}"
         )
+
+
+
+
+def _display_text(value: object) -> str:
+    """Return a printable text value for PDF fields."""
+    if value is None:
+        return "—"
+
+    if isinstance(value, date):
+        return value.strftime("%d/%m/%Y")
+
+    text = str(value).strip()
+    return text if text else "—"
+
+
+def _draw_pdf_info_block(
+    figure: plt.Figure,
+    *,
+    x: float,
+    y_top: float,
+    title: str,
+    items: list[tuple[str, object]],
+) -> None:
+    """Draw a title/value block in figure coordinates."""
+    figure.text(
+        x,
+        y_top,
+        title,
+        fontsize=11.5,
+        fontweight="bold",
+        color=BRAND_BLUE,
+        ha="left",
+        va="top",
+    )
+
+    y = y_top - 0.032
+    for label, value in items:
+        figure.text(
+            x,
+            y,
+            f"{label}:",
+            fontsize=9.5,
+            fontweight="bold",
+            color=BRAND_CHARCOAL,
+            ha="left",
+            va="top",
+        )
+        figure.text(
+            x + 0.14,
+            y,
+            _display_text(value),
+            fontsize=9.5,
+            color=BRAND_CHARCOAL,
+            ha="left",
+            va="top",
+        )
+        y -= 0.028
 
 
 def number_field(
@@ -577,41 +742,279 @@ def generate_section_pdf(
     result: CalculationResult,
     parameters: dict[str, float],
     dxf_filename: str,
+    project_info: dict[str, object],
 ) -> tuple[bytes, str]:
-    """Create a one-page PDF containing the section only."""
-    pdf_buffer = BytesIO()
-    figure = create_section_figure(
+    """Create a branded one-page PDF containing the section and project data."""
+    section_buffer = BytesIO()
+    section_figure = create_section_figure(
         result,
         parameters,
         for_pdf=True,
+    )
+    section_figure.savefig(
+        section_buffer,
+        format="png",
+        dpi=220,
+        bbox_inches="tight",
+        pad_inches=0.25,
+        facecolor="white",
+    )
+    plt.close(section_figure)
+    section_buffer.seek(0)
+    section_image = plt.imread(section_buffer)
+
+    pdf_buffer = BytesIO()
+    figure = plt.figure(figsize=(11.69, 8.27), facecolor="white")
+
+    figure.add_artist(
+        Rectangle(
+            (0.0, 0.965),
+            1.0,
+            0.015,
+            transform=figure.transFigure,
+            facecolor=BRAND_RED,
+            edgecolor="none",
+        )
+    )
+    figure.add_artist(
+        Rectangle(
+            (0.0, 0.945),
+            1.0,
+            0.012,
+            transform=figure.transFigure,
+            facecolor=BRAND_BLUE,
+            edgecolor="none",
+        )
+    )
+
+    if ASL_LOGO_PATH.exists():
+        logo_ax = figure.add_axes([0.03, 0.83, 0.28, 0.12])
+        logo_ax.imshow(plt.imread(ASL_LOGO_PATH))
+        logo_ax.axis("off")
+
+    if ARCELOR_LOGO_PATH.exists():
+        logo_ax = figure.add_axes([0.79, 0.84, 0.16, 0.09])
+        logo_ax.imshow(plt.imread(ARCELOR_LOGO_PATH))
+        logo_ax.axis("off")
+
+    figure.text(
+        0.34,
+        0.914,
+        "Trimline Gutter Section",
+        fontsize=20,
+        fontweight="bold",
+        color=BRAND_CHARCOAL,
+        ha="left",
+        va="top",
+    )
+    figure.text(
+        0.34,
+        0.882,
+        "Project issue sheet",
+        fontsize=11.5,
+        color=BRAND_RED,
+        ha="left",
+        va="top",
+    )
+
+    left_items = [
+        ("Client", project_info.get("client_name")),
+        ("Site", project_info.get("site_name")),
+        ("Order / reference", project_info.get("order_reference")),
+        ("Section date", project_info.get("section_date")),
+    ]
+    right_items = [
+        ("Requested by", project_info.get("requested_by")),
+        ("Requester company", project_info.get("requester_company")),
+        ("Requester email", project_info.get("requester_email")),
+        ("Requester phone", project_info.get("requester_phone")),
+    ]
+
+    _draw_pdf_info_block(
+        figure,
+        x=0.05,
+        y_top=0.79,
+        title="Project details",
+        items=left_items,
+    )
+    _draw_pdf_info_block(
+        figure,
+        x=0.56,
+        y_top=0.79,
+        title="Requester details",
+        items=right_items,
+    )
+
+    prepared_by = " / ".join(
+        item for item in [
+            _display_text(project_info.get("prepared_by_name")),
+            _display_text(project_info.get("prepared_by_email")),
+        ]
+        if item and item != "—"
+    )
+    figure.text(
+        0.56,
+        0.645,
+        f"Prepared by: {prepared_by or '—'}",
+        fontsize=9.2,
+        color=BRAND_CHARCOAL,
+        ha="left",
+        va="top",
+    )
+
+    notes = _display_text(project_info.get("requester_notes"))
+    if notes != "—":
+        figure.text(
+            0.05,
+            0.645,
+            "Notes:",
+            fontsize=9.5,
+            fontweight="bold",
+            color=BRAND_CHARCOAL,
+            ha="left",
+            va="top",
+        )
+        figure.text(
+            0.12,
+            0.645,
+            fill(notes, 84),
+            fontsize=9.2,
+            color=BRAND_CHARCOAL,
+            ha="left",
+            va="top",
+        )
+
+    section_ax = figure.add_axes([0.06, 0.18, 0.88, 0.42])
+    section_ax.imshow(section_image)
+    section_ax.axis("off")
+
+    figure.text(
+        0.06,
+        0.15,
+        "Company contact",
+        fontsize=10.5,
+        fontweight="bold",
+        color=BRAND_BLUE,
+        ha="left",
+        va="top",
+    )
+    figure.text(
+        0.06,
+        0.125,
+        COMPANY_NAME,
+        fontsize=9.5,
+        color=BRAND_CHARCOAL,
+        ha="left",
+        va="top",
+    )
+
+    footer_y = 0.102
+    for line in COMPANY_CONTACT_LINES:
+        figure.text(
+            0.06,
+            footer_y,
+            line,
+            fontsize=8.7,
+            color=BRAND_CHARCOAL,
+            ha="left",
+            va="top",
+        )
+        footer_y -= 0.021
+
+    figure.text(
+        0.06,
+        0.058,
+        COMPANY_WEBSITE,
+        fontsize=9.0,
+        color=BRAND_BLUE,
+        ha="left",
+        va="top",
+    )
+
+    figure.text(
+        0.94,
+        0.058,
+        f"DXF file: {Path(dxf_filename).name}",
+        fontsize=8.7,
+        color=BRAND_CHARCOAL,
+        ha="right",
+        va="top",
     )
 
     figure.savefig(
         pdf_buffer,
         format="pdf",
         bbox_inches="tight",
-        pad_inches=0.35,
+        pad_inches=0.2,
         facecolor="white",
     )
     plt.close(figure)
 
     pdf_buffer.seek(0)
     pdf_filename = f"{Path(dxf_filename).stem}_section.pdf"
-
     return pdf_buffer.getvalue(), pdf_filename
 
 
 
 
 with st.form("profile_form"):
-    main_tab, geometry_tab, manufacturing_tab, stop_end_tab = st.tabs(
+    project_tab, main_tab, geometry_tab, manufacturing_tab, stop_end_tab = st.tabs(
         [
+            "Project details",
             "Main profile",
             "Roof geometry",
             "Manufacturing",
             "Stop end",
         ]
     )
+
+    with project_tab:
+        st.subheader("Project details")
+        p1, p2 = st.columns(2)
+
+        with p1:
+            client_name = st.text_input(
+                "Client",
+                value="",
+            )
+            site_name = st.text_input(
+                "Site",
+                value="",
+            )
+            order_reference = st.text_input(
+                "Order / reference",
+                value="",
+            )
+            section_date = st.date_input(
+                "Section creation date",
+                value=date.today(),
+                format="DD/MM/YYYY",
+            )
+
+        with p2:
+            requested_by = st.text_input(
+                "Requested by",
+                value=signed_in_name or "",
+            )
+            requester_company = st.text_input(
+                "Requester company",
+                value="",
+            )
+            requester_email = st.text_input(
+                "Requester email",
+                value=signed_in_email or "",
+            )
+            requester_phone = st.text_input(
+                "Requester phone",
+                value="",
+            )
+
+        requester_notes = st.text_area(
+            "Notes",
+            value="",
+            height=90,
+            help="Optional issue notes, remarks or request context.",
+        )
 
     with main_tab:
         st.subheader("Main profile dimensions")
@@ -843,6 +1246,20 @@ with st.form("profile_form"):
         value="parametric_gutter.dxf",
     )
 
+    project_info = {
+        "client_name": client_name,
+        "site_name": site_name,
+        "order_reference": order_reference,
+        "section_date": section_date,
+        "requested_by": requested_by,
+        "requester_company": requester_company,
+        "requester_email": requester_email,
+        "requester_phone": requester_phone,
+        "requester_notes": requester_notes,
+        "prepared_by_name": signed_in_name,
+        "prepared_by_email": signed_in_email,
+    }
+
     submitted = st.form_submit_button(
         "Generate DXF",
         type="primary",
@@ -960,6 +1377,7 @@ if submitted:
                     generated,
                     parameters,
                     safe_name,
+                    project_info,
                 )
                 pdf_generated = True
 
@@ -1031,7 +1449,7 @@ if (
 
     with pdf_column:
         st.download_button(
-            "Download section PDF",
+            "Download branded section PDF",
             data=st.session_state["generated_pdf"],
             file_name=st.session_state["generated_pdf_name"],
             mime="application/pdf",
