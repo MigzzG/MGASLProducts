@@ -17,8 +17,6 @@ except ImportError as exc:
 
 
 
-GENERATOR_REVISION = "2026-07-23-V4-HORIZONTAL-NO-NOTCH-DIMS"
-
 # ============================================================
 # TRIMLINE GUTTER — PARAMETRIC DXF GENERATOR
 # Units: millimetres
@@ -1040,8 +1038,6 @@ def create_dimension_style(
         "dimexo": 1.5,
         "dimgap": 2.0,
         "dimtad": 1,
-        "dimtih": 1,
-        "dimtoh": 1,
         "dimclrd": DIMENSION_COLOUR,
         "dimclre": DIMENSION_COLOUR,
         "dimclrt": DIMENSION_COLOUR,
@@ -1303,7 +1299,21 @@ for name in SMALL_NAMES:
     )
 
 
-# Left-end notch/relief dimensions are intentionally omitted.
+# 55 mm left-end relief dimensions for A+B and G+H.
+add_aligned_dimension(
+    (0.0, GIRTH - top_relief_depth),
+    (LEFT_END_RELIEF, GIRTH - top_relief_depth),
+    18.0,
+    "<>",
+)
+
+add_aligned_dimension(
+    (0.0, bottom_relief_depth),
+    (LEFT_END_RELIEF, bottom_relief_depth),
+    -18.0,
+    "<>",
+)
+
 
 # Overall girth.
 add_aligned_dimension(
@@ -1314,7 +1324,14 @@ add_aligned_dimension(
 )
 
 
-# The overall flat-pattern length dimension is intentionally omitted.
+# Overall gutter length.
+add_aligned_dimension(
+    (0.0, 0.0),
+    (GUTTER_LENGTH, 0.0),
+    -FLAT_LENGTH_DIM_OFFSET,
+    "<>",
+)
+
 
 # Wheel-form distance from the right-hand end.
 add_aligned_dimension(
@@ -1530,22 +1547,10 @@ for p1, p2 in stop_end["cut_lines"]:
         "STOP_END",
     )
 
-# Draw the complete internal fold indication as one dotted polyline.
-indicative_segments = stop_end["indicative_lines"]
-
-if indicative_segments:
-    indicative_vertices = [
-        position_stop_point(indicative_segments[0][0])
-    ]
-
-    indicative_vertices.extend(
-        position_stop_point(segment_end)
-        for _, segment_end in indicative_segments
-    )
-
-    msp.add_lwpolyline(
-        indicative_vertices,
-        close=False,
+for p1, p2 in stop_end["indicative_lines"]:
+    msp.add_line(
+        position_stop_point(p1),
+        position_stop_point(p2),
         dxfattribs={
             "layer": "STOP_END_INDICATIVE",
             "color": DIMENSION_COLOUR,
@@ -1562,3 +1567,4 @@ if indicative_segments:
 
 output_path = Path(__file__).resolve().with_name(OUTPUT_FILENAME)
 doc.saveas(output_path)
+
