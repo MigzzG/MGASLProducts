@@ -21,21 +21,62 @@ st.set_page_config(
     layout="wide",
 )
 
-st.title("Parametric Gutter Drawing Generator")
-st.caption(
-    "Enter the profile and manufacturing values, check the calculated "
-    "section, then generate and download the DXF and section PDF."
-)
+
+def _login_screen() -> None:
+    """Block access to the generator until Google login succeeds."""
+    st.title("Parametric Gutter Drawing Generator")
+    st.caption(
+        "Sign in with Google to use the DXF and PDF generator."
+    )
+    st.info(
+        "Access is restricted to Google accounts authorised in the "
+        "Google Auth Platform while the application is in Testing mode."
+    )
+    st.button(
+        "Log in with Google",
+        on_click=st.login,
+        type="primary",
+        use_container_width=True,
+    )
 
 
-APP_REVISION = "2026-07-27-GOOGLE-SHEETS-ANALYTICS-V1"
+if not st.user.is_logged_in:
+    _login_screen()
+    st.stop()
+
+
+header_column, account_column = st.columns([4, 1])
+
+with header_column:
+    st.title("Parametric Gutter Drawing Generator")
+    st.caption(
+        "Enter the profile and manufacturing values, check the calculated "
+        "section, then generate and download the DXF and section PDF."
+    )
+
+with account_column:
+    signed_in_name = str(getattr(st.user, "name", "") or "")
+    signed_in_email = str(getattr(st.user, "email", "") or "")
+
+    st.caption("Signed in as")
+    st.write(signed_in_name or signed_in_email)
+
+    if signed_in_name and signed_in_email:
+        st.caption(signed_in_email)
+
+    st.button(
+        "Log out",
+        on_click=st.logout,
+        use_container_width=True,
+    )
+
+
+APP_REVISION = "2026-07-27-GOOGLE-LOGIN-ANALYTICS-V2"
 
 
 def _current_user_identity() -> tuple[str, str]:
     """
-    Return the authenticated user's name and email when login is configured.
-
-    Until login is added, these values remain blank.
+    Return the authenticated Google user's name and email.
     """
     try:
         if st.user.is_logged_in:
@@ -1021,6 +1062,8 @@ with st.expander("Deployment and file information"):
         - `trimline_engine.py`
         - `trimline_generator_template.py`
         - `requirements.txt`
+
+        Google login requires `streamlit>=1.42.0` and `Authlib>=1.3.2`.
 
         The PDF is produced directly from the calculated folded section. It does not contain the flat pattern or stop end.
 
