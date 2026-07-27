@@ -32,12 +32,12 @@ def _login_screen() -> None:
         "Access is restricted to Google accounts authorised in the "
         "Google Auth Platform while the application is in Testing mode."
     )
-    st.button(
+    if st.button(
         "Log in with Google",
-        on_click=st.login,
         type="primary",
         use_container_width=True,
-    )
+    ):
+        st.login()
 
 
 if not st.user.is_logged_in:
@@ -64,14 +64,14 @@ with account_column:
     if signed_in_name and signed_in_email:
         st.caption(signed_in_email)
 
-    st.button(
+    if st.button(
         "Log out",
-        on_click=st.logout,
         use_container_width=True,
-    )
+    ):
+        st.logout()
 
 
-APP_REVISION = "2026-07-27-GOOGLE-LOGIN-ANALYTICS-V2"
+APP_REVISION = "2026-07-27-GOOGLE-LOGIN-ANALYTICS-V3"
 
 
 def _current_user_identity() -> tuple[str, str]:
