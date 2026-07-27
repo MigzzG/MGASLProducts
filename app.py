@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from io import BytesIO
+from math import hypot
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -14,14 +16,14 @@ from trimline_engine import (
 
 
 st.set_page_config(
-    page_title="Parametric Gutter DXF Generator",
+    page_title="Parametric Gutter Drawing Generator",
     layout="wide",
 )
 
-st.title("Parametric Gutter DXF Generator")
+st.title("Parametric Gutter Drawing Generator")
 st.caption(
     "Enter the profile and manufacturing values, check the calculated "
-    "section, then generate and download the DXF."
+    "section, then generate and download the DXF and section PDF."
 )
 
 
@@ -48,32 +50,438 @@ def number_field(
     return float(st.number_input(**kwargs))
 
 
-def draw_profile(result: CalculationResult) -> plt.Figure:
-    fig, ax = plt.subplots(figsize=(8.5, 5.5))
+def _format_number(value: float, decimal_places: int = 2) -> str:
+    """Return a compact engineering value without unnecessary zeros."""
+    rounded = round(float(value), decimal_places)
+
+    if abs(rounded - round(rounded)) < 1e-9:
+        return str(int(round(rounded)))
+
+    return f"{rounded:.{decimal_places}f}".rstrip("0").rstrip(".")
+
+
+def _midpoint(
+    p1: tuple[float, float],
+    p2: tuple[float, float],
+) -> tuple[float, float]:
+    return (
+        (p1[0] + p2[0]) / 2.0,
+        (p1[1] + p2[1]) / 2.0,
+    )
+
+
+def _unit_vector(
+    p1: tuple[float, float],
+    p2: tuple[float, float],
+) -> tuple[float, float]:
+    dx = p2[0] - p1[0]
+    dy = p2[1] - p1[1]
+    length = hypot(dx, dy)
+
+    if length < 1e-9:
+        return 1.0, 0.0
+
+    return dx / length, dy / length
+
+
+def _profile_segments(
+    result: CalculationResult,
+) -> dict[str, tuple[tuple[float, float], tuple[float, float]]]:
+    """Map A-H to the actual section segments."""
+    front = result.front_chain
+    rear = result.rear_chain
+
+    return {
+        "A": (front[0], front[1]),
+        "B": (front[2], front[3]),
+        "C": (front[3], front[4]),
+        "D": (front[4], front[5]),
+        "E": (rear[0], rear[1]),
+        "F": (rear[1], rear[2]),
+        "G": (rear[2], rear[3]),
+        "H": (rear[3], rear[4]),
+    }
+
+
+def _profile_centre(
+    result: CalculationResult,
+) -> tuple[float, float]:
+    points = result.front_chain + result.rear_chain
+
+    return (
+        sum(point[0] for point in points) / len(points),
+        sum(point[1] for point in points) / len(points),
+    )
+
+
+def _outward_label_position(
+    p1: tuple[float, float],
+    p2: tuple[float, float],
+    centre: tuple[float, float],
+    distance: float,
+) -> tuple[float, float]:
+    """Place a horizontal label outside the section near its segment."""
+    midpoint = _midpoint(p1, p2)
+    ux, uy = _unit_vector(p1, p2)
+
+    normal_1 = -uy, ux
+    normal_2 = uy, -ux
+
+    centre_vector = (
+        midpoint[0] - centre[0],
+        midpoint[1] - centre[1],
+    )
+
+    score_1 = (
+        centre_vector[0] * normal_1[0]
+        + centre_vector[1] * normal_1[1]
+    )
+    normal = normal_1 if score_1 >= 0 else normal_2
+
+    return (
+        midpoint[0] + normal[0] * distance,
+        midpoint[1] + normal[1] * distance,
+    )
+
+
+def _angle_label_position(
+    previous: tuple[float, float],
+    vertex: tuple[float, float],
+    following: tuple[float, float],
+    distance: float,
+) -> tuple[float, float]:
+    """Place an angle value inside the smaller angle at a bend."""
+    u1 = _unit_vector(vertex, previous)
+    u2 = _unit_vector(vertex, following)
+
+    bisector = u1[0] + u2[0], u1[1] + u2[1]
+    length = hypot(bisector[0], bisector[1])
+
+    if length < 1e-9:
+        bisector = -u1[1], u1[0]
+        length = 1.0
+
+    return (
+        vertex[0] + distance * bisector[0] / length,
+        vertex[1] + distance * bisector[1] / length,
+    )
+
+
+def create_section_figure(
+    result: CalculationResult,
+    parameters: dict[str, float],
+    *,
+    for_pdf: bool = False,
+) -> plt.Figure:
+    """
+    Draw only the folded section.
+
+    The preview intentionally has no grid, chart axes or formal dimension
+    lines. Segment sizes and angles are shown as simple horizontal text
+    close to the relevant geometry.
+    """
+    figure_size = (11.69, 8.27) if for_pdf else (9.0, 6.2)
+    fig, ax = plt.subplots(figsize=figure_size)
+
+    profile_colour = "#1f5fae"
+    text_colour = "#1f2937"
+    depth_colour = "#2f8f46"
 
     front_x = [point[0] for point in result.front_chain]
     front_y = [point[1] for point in result.front_chain]
     rear_x = [point[0] for point in result.rear_chain]
     rear_y = [point[1] for point in result.rear_chain]
 
-    ax.plot(front_x, front_y, linewidth=1.8)
-    ax.plot(rear_x, rear_y, linewidth=1.8)
+    ax.plot(
+        front_x,
+        front_y,
+        linewidth=2.2,
+        solid_capstyle="round",
+        solid_joinstyle="round",
+        color=profile_colour,
+    )
+    ax.plot(
+        rear_x,
+        rear_y,
+        linewidth=2.2,
+        solid_capstyle="round",
+        solid_joinstyle="round",
+        color=profile_colour,
+    )
 
+    all_points = result.front_chain + result.rear_chain
+    minimum_x = min(point[0] for point in all_points)
+    maximum_x = max(point[0] for point in all_points)
+    minimum_y = min(point[1] for point in all_points)
+    maximum_y = max(point[1] for point in all_points)
+
+    width = max(maximum_x - minimum_x, 1.0)
+    height = max(maximum_y - minimum_y, 1.0)
+    overall_span = max(width, height)
+
+    segment_offset = max(overall_span * 0.045, 7.0)
+    angle_offset = max(overall_span * 0.055, 9.0)
+    centre = _profile_centre(result)
+    segments = _profile_segments(result)
+
+    segment_values = {
+        "A": parameters["A"],
+        "B": parameters["B"],
+        "C": parameters["C"],
+        "D": parameters["D"],
+        "E": parameters["E"],
+        "F": result.f,
+        "G": parameters["G"],
+        "H": parameters["H"],
+    }
+
+    for letter, segment in segments.items():
+        label_position = _outward_label_position(
+            segment[0],
+            segment[1],
+            centre,
+            segment_offset,
+        )
+
+        # Short upper segments need deliberate separation so their labels
+        # remain readable even when the profile changes slightly.
+        segment_midpoint = _midpoint(segment[0], segment[1])
+
+        if letter == "A":
+            label_position = (
+                segment_midpoint[0] + segment_offset * 0.75,
+                segment_midpoint[1] + segment_offset * 1.35,
+            )
+        elif letter == "B":
+            label_position = (
+                segment_midpoint[0] - segment_offset * 0.75,
+                segment_midpoint[1] + segment_offset * 1.55,
+            )
+        elif letter == "G":
+            label_position = (
+                segment_midpoint[0],
+                segment_midpoint[1] + segment_offset * 1.35,
+            )
+        elif letter == "H":
+            label_position = (
+                segment_midpoint[0] - segment_offset * 1.55,
+                segment_midpoint[1] - segment_offset * 0.20,
+            )
+
+        ax.text(
+            label_position[0],
+            label_position[1],
+            f"{letter} {_format_number(segment_values[letter])}",
+            horizontalalignment="center",
+            verticalalignment="center",
+            rotation=0,
+            fontsize=10.5 if not for_pdf else 11.5,
+            color=text_colour,
+            bbox={
+                "facecolor": "white",
+                "edgecolor": "none",
+                "alpha": 0.88,
+                "pad": 1.5,
+            },
+        )
+
+    front = result.front_chain
+    rear = result.rear_chain
+
+    # Plain numerical angle values only - no BC, CD, DE, EF, FG or GH text.
+    angle_annotations = [
+        (
+            "BC",
+            front[2],
+            front[3],
+            front[4],
+            result.angle_bc,
+        ),
+        (
+            "CD",
+            front[3],
+            front[4],
+            front[5],
+            parameters["ANGLE_CD"],
+        ),
+        (
+            "DE",
+            front[4],
+            front[5],
+            rear[1],
+            parameters["ANGLE_DE"],
+        ),
+        (
+            "EF",
+            rear[0],
+            rear[1],
+            rear[2],
+            parameters["ANGLE_EF"],
+        ),
+        (
+            "FG",
+            rear[1],
+            rear[2],
+            rear[3],
+            result.angle_fg,
+        ),
+        (
+            "GH",
+            rear[2],
+            rear[3],
+            rear[4],
+            90.0 + parameters["ROOF_PITCH"],
+        ),
+    ]
+
+    for angle_name, previous, vertex, following, angle_value in angle_annotations:
+        angle_position = _angle_label_position(
+            previous,
+            vertex,
+            following,
+            angle_offset,
+        )
+
+        # F/G and G/H are close together. Keep their numerical values on
+        # opposite sides of G, with the G/H angle inside the return.
+        if angle_name == "FG":
+            angle_position = (
+                vertex[0] - angle_offset * 1.00,
+                vertex[1] - angle_offset * 1.70,
+            )
+        elif angle_name == "GH":
+            angle_position = (
+                vertex[0] + angle_offset * 0.85,
+                vertex[1] - angle_offset * 0.15,
+            )
+
+        ax.text(
+            angle_position[0],
+            angle_position[1],
+            f"{_format_number(angle_value)}°",
+            horizontalalignment="center",
+            verticalalignment="center",
+            rotation=0,
+            fontsize=9.5 if not for_pdf else 10.5,
+            color=text_colour,
+            bbox={
+                "facecolor": "white",
+                "edgecolor": "none",
+                "alpha": 0.82,
+                "pad": 1.0,
+            },
+        )
+
+    # Roof pitch note near B. The value is not a formal dimension.
+    b_start, b_end = segments["B"]
+    b_midpoint = _midpoint(b_start, b_end)
+    b_label_position = (
+        b_midpoint[0],
+        b_midpoint[1] + segment_offset * 3.0,
+    )
+
+    ax.text(
+        b_label_position[0],
+        b_label_position[1],
+        f"Roof pitch {_format_number(parameters['ROOF_PITCH'])}°",
+        horizontalalignment="center",
+        verticalalignment="center",
+        rotation=0,
+        fontsize=9.5 if not for_pdf else 10.5,
+        color=text_colour,
+    )
+
+    # Gutter arm depth remains a simple dashed construction and nearby note.
     depth_start, depth_end = result.gutter_arm_line
     ax.plot(
         [depth_start[0], depth_end[0]],
         [depth_start[1], depth_end[1]],
-        linestyle="--",
-        linewidth=1.0,
+        linestyle=(0, (5, 4)),
+        linewidth=1.2,
+        color=depth_colour,
     )
 
-    ax.set_aspect("equal", adjustable="datalim")
-    ax.set_xlabel("mm")
-    ax.set_ylabel("mm")
-    ax.grid(True, linewidth=0.35)
-    fig.tight_layout()
+    depth_midpoint = _midpoint(depth_start, depth_end)
+    depth_label_position = _outward_label_position(
+        depth_start,
+        depth_end,
+        centre,
+        segment_offset * 2.0,
+    )
+
+    ax.text(
+        depth_label_position[0],
+        depth_label_position[1],
+        "Gutter arm depth\n"
+        f"{_format_number(parameters['GUTTER_ARM_DEPTH'])} mm",
+        horizontalalignment="center",
+        verticalalignment="center",
+        rotation=0,
+        fontsize=9.5 if not for_pdf else 10.5,
+        color=text_colour,
+        linespacing=1.15,
+        bbox={
+            "facecolor": "white",
+            "edgecolor": "none",
+            "alpha": 0.88,
+            "pad": 2.0,
+        },
+    )
+
+    # Generous white margin prevents labels from being clipped.
+    padding_x = max(width * 0.23, 28.0)
+    padding_y = max(height * 0.19, 24.0)
+
+    ax.set_xlim(minimum_x - padding_x, maximum_x + padding_x)
+    ax.set_ylim(minimum_y - padding_y, maximum_y + padding_y)
+    ax.set_aspect("equal", adjustable="box")
+    ax.axis("off")
+
+    if for_pdf:
+        ax.set_title(
+            "Parametric gutter section",
+            loc="left",
+            fontsize=16,
+            fontweight="bold",
+            color=text_colour,
+            pad=16,
+        )
+
+    fig.patch.set_facecolor("white")
+    ax.set_facecolor("white")
+    fig.tight_layout(pad=1.2)
 
     return fig
+
+
+def generate_section_pdf(
+    result: CalculationResult,
+    parameters: dict[str, float],
+    dxf_filename: str,
+) -> tuple[bytes, str]:
+    """Create a one-page PDF containing the section only."""
+    pdf_buffer = BytesIO()
+    figure = create_section_figure(
+        result,
+        parameters,
+        for_pdf=True,
+    )
+
+    figure.savefig(
+        pdf_buffer,
+        format="pdf",
+        bbox_inches="tight",
+        pad_inches=0.35,
+        facecolor="white",
+    )
+    plt.close(figure)
+
+    pdf_buffer.seek(0)
+    pdf_filename = f"{Path(dxf_filename).stem}_section.pdf"
+
+    return pdf_buffer.getvalue(), pdf_filename
+
+
 
 
 with st.form("profile_form"):
@@ -378,8 +786,9 @@ try:
 
     with preview_col:
         st.subheader("Section preview")
-        figure = draw_profile(preview)
+        figure = create_section_figure(preview, parameters)
         st.pyplot(figure, clear_figure=True)
+        plt.close(figure)
 
     with small_end_col:
         st.subheader("Calculated small end")
@@ -405,15 +814,22 @@ if submitted:
         st.error("Correct the invalid parameters before generating the DXF.")
     else:
         try:
-            with st.spinner("Generating DXF..."):
+            with st.spinner("Generating DXF and section PDF..."):
                 dxf_bytes, generated, safe_name = generate_dxf(
                     parameters,
                     output_name,
                 )
+                pdf_bytes, pdf_name = generate_section_pdf(
+                    generated,
+                    parameters,
+                    safe_name,
+                )
 
             st.session_state["generated_dxf"] = dxf_bytes
             st.session_state["generated_name"] = safe_name
-            st.success("DXF generated successfully.")
+            st.session_state["generated_pdf"] = pdf_bytes
+            st.session_state["generated_pdf_name"] = pdf_name
+            st.success("DXF and section PDF generated successfully.")
 
         except ModuleNotFoundError as exc:
             st.error(
@@ -427,15 +843,31 @@ if submitted:
             st.exception(exc)
 
 
-if "generated_dxf" in st.session_state:
-    st.download_button(
-        "Download generated DXF",
-        data=st.session_state["generated_dxf"],
-        file_name=st.session_state["generated_name"],
-        mime="application/dxf",
-        type="primary",
-        use_container_width=True,
-    )
+if (
+    "generated_dxf" in st.session_state
+    and "generated_pdf" in st.session_state
+):
+    dxf_column, pdf_column = st.columns(2)
+
+    with dxf_column:
+        st.download_button(
+            "Download generated DXF",
+            data=st.session_state["generated_dxf"],
+            file_name=st.session_state["generated_name"],
+            mime="application/dxf",
+            type="primary",
+            use_container_width=True,
+        )
+
+    with pdf_column:
+        st.download_button(
+            "Download section PDF",
+            data=st.session_state["generated_pdf"],
+            file_name=st.session_state["generated_pdf_name"],
+            mime="application/pdf",
+            type="primary",
+            use_container_width=True,
+        )
 
 
 with st.expander("Deployment and file information"):
@@ -447,6 +879,8 @@ with st.expander("Deployment and file information"):
         - `trimline_engine.py`
         - `trimline_generator_template.py`
         - `requirements.txt`
+
+        The PDF is produced directly from the calculated folded section. It does not contain the flat pattern or stop end.
 
         Run locally with:
 
