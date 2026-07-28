@@ -239,7 +239,7 @@ def _show_brand_header() -> None:
                 <div class="brand-title">Trimline Gutter Section Generator</div>
                 <div class="brand-subtitle">
                     Create coordinated technical outputs containing the DXF,
-                    branded PDF, project details and requester information.
+                    PDF, project details and requester information.
                 </div>
                 <div class="brand-message">{PRODUCT_TAGLINE}</div>
             </div>
@@ -329,7 +329,7 @@ info_column, account_column = st.columns([4, 1])
 with info_column:
     st.caption(
         "Enter the project information and the profile values, review the "
-        "preview, then generate the DXF and branded PDF together."
+        "preview, then generate the DXF and PDF together."
     )
 
 with account_column:
@@ -348,7 +348,7 @@ with account_column:
         st.logout()
 
 
-APP_REVISION = "2026-07-28-STYLE-V13"
+APP_REVISION = "2026-07-28-STYLE-V14"
 
 
 def _current_user_identity() -> tuple[str, str]:
@@ -942,7 +942,7 @@ def generate_section_pdf(
 
     # Logos
     if ASL_LOGO_PATH.exists():
-        logo_ax = figure.add_axes([0.06, 0.922, 0.28, 0.047])
+        logo_ax = figure.add_axes([0.055, 0.918, 0.305, 0.052])
         logo_ax.imshow(plt.imread(ASL_LOGO_PATH))
         logo_ax.axis("off")
 
@@ -1684,7 +1684,7 @@ if (
 
     with pdf_column:
         st.download_button(
-            "Download branded section PDF",
+            "Download PDF",
             data=st.session_state["generated_pdf"],
             file_name=st.session_state["generated_pdf_name"],
             mime="application/pdf",
