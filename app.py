@@ -7,10 +7,8 @@ from pathlib import Path
 from textwrap import fill
 
 import matplotlib.pyplot as plt
-import numpy as np
 import streamlit as st
-from matplotlib.colors import LinearSegmentedColormap
-from matplotlib.patches import Polygon, Rectangle
+from matplotlib.patches import Rectangle
 
 from analytics import log_usage_event
 from trimline_engine import (
@@ -350,7 +348,7 @@ with account_column:
         st.logout()
 
 
-APP_REVISION = "2026-07-28-STYLE-V8"
+APP_REVISION = "2026-07-28-STYLE-V10"
 
 
 def _current_user_identity() -> tuple[str, str]:
@@ -942,45 +940,7 @@ def generate_section_pdf(
     pdf_buffer = BytesIO()
     figure = plt.figure(figsize=(11.69, 8.27), facecolor="white")
 
-    # Full-page background axes for the brochure-inspired gradient wedges.
-    background_ax = figure.add_axes([0.0, 0.0, 1.0, 1.0], zorder=-10)
-    background_ax.set_xlim(0.0, 1.0)
-    background_ax.set_ylim(0.0, 1.0)
-    background_ax.axis("off")
-
-    colour_map = LinearSegmentedColormap.from_list(
-        "am_gradient",
-        [BRAND_AMBER, BRAND_ARCELOR_ORANGE, BRAND_RED, BRAND_MAGENTA],
-    )
-    horizontal_gradient = np.linspace(0.0, 1.0, 1200).reshape(1, -1)
-
-    bottom_gradient = background_ax.imshow(
-        horizontal_gradient,
-        extent=[0.0, 1.0, 0.0, 0.105],
-        aspect="auto",
-        origin="lower",
-        cmap=colour_map,
-    )
-    bottom_clip = Polygon(
-        [(0.0, 0.0), (0.62, 0.0), (0.53, 0.105), (0.08, 0.105)],
-        closed=True,
-        transform=background_ax.transData,
-    )
-    bottom_gradient.set_clip_path(bottom_clip)
-
-    top_gradient = background_ax.imshow(
-        horizontal_gradient,
-        extent=[0.72, 1.0, 0.84, 0.97],
-        aspect="auto",
-        origin="lower",
-        cmap=colour_map,
-    )
-    top_clip = Polygon(
-        [(0.78, 0.97), (1.0, 0.97), (1.0, 0.84), (0.72, 0.86)],
-        closed=True,
-        transform=background_ax.transData,
-    )
-    top_gradient.set_clip_path(top_clip)
+    # Clean white PDF page: no gradient background or top colour bars.
 
     # Official logos supplied by the user.
     if ASL_LOGO_PATH.exists():
@@ -1706,6 +1666,7 @@ if (
 
 
 _show_company_footer()
+st.markdown("<div style='height: 1.4rem;'></div>", unsafe_allow_html=True)
 
 with st.expander("Deployment and file information"):
     st.markdown(
