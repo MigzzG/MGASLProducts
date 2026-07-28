@@ -348,7 +348,7 @@ with account_column:
         st.logout()
 
 
-APP_REVISION = "2026-07-28-STYLE-V11"
+APP_REVISION = "2026-07-28-STYLE-V12"
 
 
 def _current_user_identity() -> tuple[str, str]:
@@ -928,7 +928,7 @@ def generate_section_pdf(
     section_figure.savefig(
         section_buffer,
         format="png",
-        dpi=240,
+        dpi=420,
         bbox_inches="tight",
         pad_inches=0.20,
         facecolor="white",
@@ -1045,7 +1045,7 @@ def generate_section_pdf(
 
     figure.text(
         0.56,
-        note_y,
+        0.665,
         f"Prepared by: {prepared_by or '—'}",
         fontsize=9.2,
         color=BRAND_CHARCOAL,
@@ -1065,7 +1065,7 @@ def generate_section_pdf(
         va="top",
     )
     section_ax = figure.add_axes([0.08, 0.305, 0.84, 0.325])
-    section_ax.imshow(section_image)
+    section_ax.imshow(section_image, interpolation="none")
     section_ax.axis("off")
 
     # Contact area
