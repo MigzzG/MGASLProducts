@@ -348,7 +348,7 @@ with account_column:
         st.logout()
 
 
-APP_REVISION = "2026-07-28-STYLE-V12"
+APP_REVISION = "2026-07-28-STYLE-V13"
 
 
 def _current_user_identity() -> tuple[str, str]:
@@ -454,7 +454,7 @@ def _draw_pdf_info_block(
         x,
         y_top,
         title,
-        fontsize=11.5,
+        fontsize=10.8,
         fontweight="bold",
         color=BRAND_ARCELOR_ORANGE,
         ha="left",
@@ -467,17 +467,17 @@ def _draw_pdf_info_block(
             x,
             y,
             f"{label}:",
-            fontsize=9.5,
+            fontsize=8.8,
             fontweight="bold",
             color=BRAND_CHARCOAL,
             ha="left",
             va="top",
         )
         figure.text(
-            x + 0.14,
+            x + 0.18,
             y,
             _display_text(value),
-            fontsize=9.5,
+            fontsize=8.8,
             color=BRAND_CHARCOAL,
             ha="left",
             va="top",
@@ -942,12 +942,12 @@ def generate_section_pdf(
 
     # Logos
     if ASL_LOGO_PATH.exists():
-        logo_ax = figure.add_axes([0.05, 0.905, 0.36, 0.070])
+        logo_ax = figure.add_axes([0.06, 0.922, 0.28, 0.047])
         logo_ax.imshow(plt.imread(ASL_LOGO_PATH))
         logo_ax.axis("off")
 
     if ARCELOR_LOGO_PATH.exists():
-        logo_ax = figure.add_axes([0.70, 0.915, 0.20, 0.050])
+        logo_ax = figure.add_axes([0.68, 0.904, 0.27, 0.075])
         logo_ax.imshow(plt.imread(ARCELOR_LOGO_PATH))
         logo_ax.axis("off")
 
@@ -1047,7 +1047,7 @@ def generate_section_pdf(
         0.56,
         0.665,
         f"Prepared by: {prepared_by or '—'}",
-        fontsize=9.2,
+        fontsize=8.6,
         color=BRAND_CHARCOAL,
         ha="left",
         va="top",
