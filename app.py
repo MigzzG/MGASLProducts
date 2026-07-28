@@ -87,20 +87,20 @@ def _inject_brand_css() -> None:
                 max-width: 1480px;
             }}
 
-            .brand-logo-box {
+            .brand-logo-box {{
                 padding-top: 0.55rem;
-            }
+            }}
 
-            .company-footer {
+            .company-footer {{
                 margin-bottom: 1.25rem;
                 padding-bottom: 0.8rem;
-            }
+            }}
 
-            .company-tagline {
+            .company-tagline {{
                 margin-top: 1.15rem;
                 margin-bottom: 0.45rem;
                 line-height: 1.35;
-            }
+            }}
 
             .brand-shell {{
                 position: relative;
@@ -350,7 +350,7 @@ with account_column:
         st.logout()
 
 
-APP_REVISION = "2026-07-28-STYLE-V7"
+APP_REVISION = "2026-07-28-STYLE-V8"
 
 
 def _current_user_identity() -> tuple[str, str]:
