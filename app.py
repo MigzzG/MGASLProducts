@@ -348,7 +348,7 @@ with account_column:
         st.logout()
 
 
-APP_REVISION = "2026-07-28-STYLE-V14"
+APP_REVISION = "2026-07-28-STYLE-V15"
 
 
 def _current_user_identity() -> tuple[str, str]:
@@ -379,7 +379,7 @@ def _usage_payload(
         "C": parameters["C"],
         "D": parameters["D"],
         "E": parameters["E"],
-        "F": result.f if result is not None else "",
+        "F": int(round(result.f)) if result is not None else "",
         "G": parameters["G"],
         "H": parameters["H"],
         "roof_pitch": parameters["ROOF_PITCH"],
@@ -388,7 +388,7 @@ def _usage_payload(
         "angle_cd": parameters["ANGLE_CD"],
         "angle_de": parameters["ANGLE_DE"],
         "angle_ef": parameters["ANGLE_EF"],
-        "angle_fg": result.angle_fg if result is not None else "",
+        "angle_fg": (90.0 - parameters["ROOF_PITCH"]) if result is not None else "",
         "girth": result.girth if result is not None else "",
         "dxf_generated_yes_no": "Yes" if dxf_generated else "No",
         "pdf_generated_yes_no": "Yes" if pdf_generated else "No",
@@ -688,7 +688,7 @@ def create_section_figure(
         "C": parameters["C"],
         "D": parameters["D"],
         "E": parameters["E"],
-        "F": result.f,
+        "F": int(round(result.f)),
         "G": parameters["G"],
         "H": parameters["H"],
     }
@@ -781,7 +781,7 @@ def create_section_figure(
             rear[1],
             rear[2],
             rear[3],
-            result.angle_fg,
+            90.0 - parameters["ROOF_PITCH"],
         ),
         (
             "GH",
@@ -1548,10 +1548,10 @@ try:
     preview = calculate_profile(parameters)
 
     metric_1, metric_2, metric_3, metric_4 = st.columns(4)
-    metric_1.metric("Calculated F", f"{preview.f:.2f} mm")
+    metric_1.metric("Calculated F", f"{int(round(preview.f))} mm")
     metric_2.metric("Girth", f"{preview.girth:.2f} mm")
     metric_3.metric("Calculated BC", f"{preview.angle_bc:.2f}°")
-    metric_4.metric("Calculated FG", f"{preview.angle_fg:.2f}°")
+    metric_4.metric("Calculated FG", f"{_format_number(90.0 - parameters['ROOF_PITCH'])}°")
 
     preview_col, small_end_col = st.columns([1.6, 1.0])
 
