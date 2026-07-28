@@ -82,10 +82,25 @@ def _inject_brand_css() -> None:
             }}
 
             .block-container {{
-                padding-top: 1.1rem;
-                padding-bottom: 1.8rem;
+                padding-top: 1.9rem;
+                padding-bottom: 2.0rem;
                 max-width: 1480px;
             }}
+
+            .brand-logo-box {
+                padding-top: 0.55rem;
+            }
+
+            .company-footer {
+                margin-bottom: 1.25rem;
+                padding-bottom: 0.8rem;
+            }
+
+            .company-tagline {
+                margin-top: 1.15rem;
+                margin-bottom: 0.45rem;
+                line-height: 1.35;
+            }
 
             .brand-shell {{
                 position: relative;
@@ -213,8 +228,10 @@ def _show_brand_header() -> None:
     logo_left, title_col, logo_right = st.columns([1.35, 2.70, 1.35])
 
     with logo_left:
+        st.markdown('<div class="brand-logo-box">', unsafe_allow_html=True)
         if ASL_LOGO_PATH.exists():
             st.image(str(ASL_LOGO_PATH), use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
     with title_col:
         st.markdown(
@@ -233,8 +250,10 @@ def _show_brand_header() -> None:
         )
 
     with logo_right:
+        st.markdown('<div class="brand-logo-box">', unsafe_allow_html=True)
         if ARCELOR_LOGO_PATH.exists():
             st.image(str(ARCELOR_LOGO_PATH), use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 
 def _show_company_footer() -> None:
@@ -331,7 +350,7 @@ with account_column:
         st.logout()
 
 
-APP_REVISION = "2026-07-28-STYLE-V6"
+APP_REVISION = "2026-07-28-STYLE-V7"
 
 
 def _current_user_identity() -> tuple[str, str]:
