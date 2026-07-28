@@ -7,8 +7,10 @@ from pathlib import Path
 from textwrap import fill
 
 import matplotlib.pyplot as plt
+import numpy as np
 import streamlit as st
-from matplotlib.patches import Rectangle
+from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.patches import Polygon, Rectangle
 
 from analytics import log_usage_event
 from trimline_engine import (
@@ -24,68 +26,181 @@ st.set_page_config(
     layout="wide",
 )
 
-BRAND_BLUE = "#3B7CC2"
-BRAND_CHARCOAL = "#5B5356"
-BRAND_RED = "#EF4D2F"
-BRAND_LIGHT = "#F5F7FA"
+BRAND_SKY_BLUE = "#0072CE"
+BRAND_STEEL_GREY = "#53565A"
+BRAND_BLUE_2 = "#89B7D9"
+BRAND_BLUE_3 = "#D0E2F0"
+BRAND_BLUE_4 = "#E9F1F8"
+BRAND_GREY_2 = "#B0AFB0"
+BRAND_GREY_3 = "#E0E0E0"
+BRAND_GREY_4 = "#F0EFF0"
+BRAND_ARCELOR_ORANGE = "#F04E23"
+BRAND_CHARCOAL = "#333333"
+BRAND_LIGHT = "#F7F7F5"
+BRAND_LINE = "#D8D8D6"
 
-COMPANY_NAME = "ArchSteel by ArcelorMittal Building Solutions"
-COMPANY_CONTACT_LINES = [
-    "Lamont Business Park, Lyons Road, Trafford Park, Manchester M17 1RN",
-    "Units 2 & 3 Orion Trade Centre, Off Guinness Circle, Manchester M17 1EB",
+COMPANY_NAME = "ArcelorMittal Building Solutions"
+MANCHESTER_CONTACT_LINES = [
+    "Manchester",
+    "Lyons Road",
+    "Trafford Park",
+    "M17 1RN",
+    "United Kingdom",
+    "Sales Office: 0161 872 6333",
+    "info@archsteel.co.uk",
 ]
-COMPANY_WEBSITE = "archsteel.co.uk"
+GLASGOW_CONTACT_LINES = [
+    "Glasgow",
+    "Suite F, Campsie Softnet Centre,",
+    "Enterprise House, Kirkintilloch",
+    "G66 1XQ",
+    "United Kingdom",
+    "Sales Office: 0141 530 1485",
+    "info.uk@arcelormittal.com",
+]
+COMPANY_WEBSITE = "construction-uk.arcelormittal.com"
+COMPANY_TAGLINE = "Smarter steels for people and planet"
+PRODUCT_TAGLINE = "Inspiring Smarter Building"
 
 ASSET_DIR = Path(__file__).resolve().parent / "assets"
-ASL_LOGO_PATH = ASSET_DIR / "asl_logo.png"
+ASL_LOGO_PATH = ASSET_DIR / "archsteel_logo.jpg"
 ARCELOR_LOGO_PATH = ASSET_DIR / "arcelormittal_logo.png"
 
 
 def _inject_brand_css() -> None:
-    """Apply a light corporate style to the Streamlit page."""
+    """Apply the revised brochure-inspired style using the approved brand colours."""
     st.markdown(
         f"""
         <style>
+            .stApp, .stApp * {{
+                font-family: Arial, Helvetica, sans-serif;
+            }}
+
             .stApp {{
-                background: white;
-            }}
-            .brand-shell {{
-                border: 1px solid #d9dfe7;
-                border-radius: 16px;
-                padding: 1rem 1.2rem 1rem 1.2rem;
-                background: linear-gradient(90deg, {BRAND_LIGHT} 0%, #ffffff 100%);
-                margin-bottom: 1rem;
-            }}
-            .brand-kicker {{
-                font-size: 0.9rem;
-                font-weight: 600;
-                color: {BRAND_RED};
-                letter-spacing: 0.02em;
-                margin-bottom: 0.15rem;
-            }}
-            .brand-title {{
-                font-size: 2rem;
-                font-weight: 700;
+                background: #ffffff;
                 color: {BRAND_CHARCOAL};
-                line-height: 1.1;
+            }}
+
+            .block-container {{
+                padding-top: 1.1rem;
+                padding-bottom: 1.8rem;
+                max-width: 1480px;
+            }}
+
+            .brand-shell {{
+                position: relative;
+                min-height: 150px;
+                border-left: 6px solid {BRAND_STEEL_GREY};
+                padding: 1.10rem 1.20rem 1.00rem 1.20rem;
+                background: #ffffff;
+                overflow: hidden;
+            }}
+
+            .brand-kicker {{
+                font-size: 0.92rem;
+                font-weight: 700;
+                color: {BRAND_STEEL_GREY};
+                margin-bottom: 0.25rem;
+            }}
+
+            .brand-title {{
+                font-size: 2.10rem;
+                font-weight: 750;
+                color: {BRAND_SKY_BLUE};
+                line-height: 1.05;
                 margin-bottom: 0.35rem;
             }}
+
             .brand-subtitle {{
-                font-size: 0.98rem;
-                color: {BRAND_CHARCOAL};
-                opacity: 0.9;
-                line-height: 1.35;
+                font-size: 1rem;
+                color: {BRAND_STEEL_GREY};
+                line-height: 1.4;
+                max-width: 760px;
             }}
+
+            .brand-message {{
+                display: inline-block;
+                margin-top: 0.85rem;
+                padding: 0;
+                color: #000000;
+                font-weight: 700;
+                background: transparent;
+            }}
+
             .meta-card {{
-                border: 1px solid #d9dfe7;
-                border-radius: 14px;
-                background: white;
-                padding: 0.9rem 1rem;
+                border-top: 4px solid {BRAND_SKY_BLUE};
+                background: {BRAND_BLUE_4};
+                padding: 0.8rem 0.95rem;
                 margin-bottom: 0.75rem;
             }}
+
             .meta-card h4 {{
+                margin: 0 0 0.3rem 0;
+                color: {BRAND_SKY_BLUE};
+            }}
+
+            .company-footer {{
+                margin-top: 1.4rem;
+                border-top: 1px solid {BRAND_GREY_3};
+                padding-top: 1rem;
+                color: {BRAND_CHARCOAL};
+            }}
+
+            .company-footer-grid {{
+                display: grid;
+                grid-template-columns: 1.3fr 1fr 1fr;
+                gap: 1.4rem;
+            }}
+
+            .company-footer h4 {{
                 margin: 0 0 0.35rem 0;
-                color: {BRAND_BLUE};
+                font-size: 1rem;
+                color: {BRAND_SKY_BLUE};
+            }}
+
+            .company-footer p {{
+                margin: 0;
+                line-height: 1.35;
+                font-size: 0.88rem;
+            }}
+
+            .company-tagline {{
+                margin-top: 0.9rem;
+                padding: 0;
+                color: #000000;
+                font-weight: 700;
+                background: transparent;
+            }}
+
+            div[data-baseweb="tab-list"] {{
+                gap: 0.4rem;
+            }}
+
+            button[data-baseweb="tab"][aria-selected="true"] {{
+                color: {BRAND_SKY_BLUE} !important;
+                font-weight: 700;
+            }}
+
+            div[data-baseweb="tab-highlight"] {{
+                background-color: {BRAND_SKY_BLUE} !important;
+            }}
+
+            .stFormSubmitButton > button[kind="primary"],
+            .stButton > button[kind="primary"] {{
+                color: #ffffff;
+                border: none;
+                background: {BRAND_STEEL_GREY};
+            }}
+
+            .stFormSubmitButton > button[kind="primary"]:hover,
+            .stButton > button[kind="primary"]:hover {{
+                color: #ffffff;
+                border: none;
+                background: {BRAND_SKY_BLUE};
+            }}
+
+            h1, h2, h3 {{
+                color: {BRAND_SKY_BLUE};
             }}
         </style>
         """,
@@ -94,8 +209,8 @@ def _inject_brand_css() -> None:
 
 
 def _show_brand_header() -> None:
-    """Display a simple corporate header with both company logos."""
-    logo_left, title_col, logo_right = st.columns([1.25, 2.7, 1.1])
+    """Display the logos and the simplified heading panel."""
+    logo_left, title_col, logo_right = st.columns([1.35, 2.70, 1.35])
 
     with logo_left:
         if ASL_LOGO_PATH.exists():
@@ -105,12 +220,13 @@ def _show_brand_header() -> None:
         st.markdown(
             f"""
             <div class="brand-shell">
-                <div class="brand-kicker">ArchSteel / ArcelorMittal Building Solutions</div>
+                <div class="brand-kicker">ArcelorMittal Building Solutions</div>
                 <div class="brand-title">Trimline Gutter Section Generator</div>
                 <div class="brand-subtitle">
-                    Branded technical output with project details, requester information,
-                    DXF download and a section PDF formatted for issue.
+                    Create coordinated technical outputs containing the DXF,
+                    branded PDF, project details and requester information.
                 </div>
+                <div class="brand-message">{PRODUCT_TAGLINE}</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -119,6 +235,47 @@ def _show_brand_header() -> None:
     with logo_right:
         if ARCELOR_LOGO_PATH.exists():
             st.image(str(ARCELOR_LOGO_PATH), use_container_width=True)
+
+
+def _show_company_footer() -> None:
+    """Show the contact information using the simplified styling."""
+    st.markdown(
+        f"""
+        <div class="company-footer">
+            <div class="company-footer-grid">
+                <div>
+                    <h4>Get in touch</h4>
+                    <p><strong>{COMPANY_NAME}</strong></p>
+                    <p>{COMPANY_WEBSITE}</p>
+                </div>
+                <div>
+                    <h4>Manchester</h4>
+                    <p>
+                        Lyons Road<br>
+                        Trafford Park<br>
+                        M17 1RN<br>
+                        United Kingdom<br>
+                        Sales Office: 0161 872 6333<br>
+                        info@archsteel.co.uk
+                    </p>
+                </div>
+                <div>
+                    <h4>Glasgow</h4>
+                    <p>
+                        Suite F, Campsie Softnet Centre,<br>
+                        Enterprise House, Kirkintilloch<br>
+                        G66 1XQ<br>
+                        United Kingdom<br>
+                        Sales Office: 0141 530 1485<br>
+                        info.uk@arcelormittal.com
+                    </p>
+                </div>
+            </div>
+            <div class="company-tagline">{COMPANY_TAGLINE}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 _inject_brand_css()
@@ -155,7 +312,7 @@ info_column, account_column = st.columns([4, 1])
 with info_column:
     st.caption(
         "Enter the project information and the profile values, review the "
-        "preview, then generate the DXF and the branded section PDF."
+        "preview, then generate the DXF and branded PDF together."
     )
 
 with account_column:
@@ -174,7 +331,7 @@ with account_column:
         st.logout()
 
 
-APP_REVISION = "2026-07-27-BRANDED-PDF-V1"
+APP_REVISION = "2026-07-28-STYLE-V6"
 
 
 def _current_user_identity() -> tuple[str, str]:
@@ -282,7 +439,7 @@ def _draw_pdf_info_block(
         title,
         fontsize=11.5,
         fontweight="bold",
-        color=BRAND_BLUE,
+        color=BRAND_ARCELOR_ORANGE,
         ha="left",
         va="top",
     )
@@ -467,9 +624,9 @@ def create_section_figure(
     figure_size = (11.69, 8.27) if for_pdf else (9.0, 6.2)
     fig, ax = plt.subplots(figsize=figure_size)
 
-    profile_colour = "#1f5fae"
-    text_colour = "#1f2937"
-    depth_colour = "#2f8f46"
+    profile_colour = BRAND_STEEL_GREY
+    text_colour = BRAND_STEEL_GREY
+    depth_colour = BRAND_ARCELOR_ORANGE
 
     front_x = [point[0] for point in result.front_chain]
     front_y = [point[1] for point in result.front_chain]
@@ -744,7 +901,7 @@ def generate_section_pdf(
     dxf_filename: str,
     project_info: dict[str, object],
 ) -> tuple[bytes, str]:
-    """Create a branded one-page PDF containing the section and project data."""
+    """Create a brochure-inspired branded section PDF."""
     section_buffer = BytesIO()
     section_figure = create_section_figure(
         result,
@@ -756,7 +913,7 @@ def generate_section_pdf(
         format="png",
         dpi=220,
         bbox_inches="tight",
-        pad_inches=0.25,
+        pad_inches=0.2,
         facecolor="white",
     )
     plt.close(section_figure)
@@ -766,55 +923,85 @@ def generate_section_pdf(
     pdf_buffer = BytesIO()
     figure = plt.figure(figsize=(11.69, 8.27), facecolor="white")
 
-    figure.add_artist(
-        Rectangle(
-            (0.0, 0.965),
-            1.0,
-            0.015,
-            transform=figure.transFigure,
-            facecolor=BRAND_RED,
-            edgecolor="none",
-        )
-    )
-    figure.add_artist(
-        Rectangle(
-            (0.0, 0.945),
-            1.0,
-            0.012,
-            transform=figure.transFigure,
-            facecolor=BRAND_BLUE,
-            edgecolor="none",
-        )
-    )
+    # Full-page background axes for the brochure-inspired gradient wedges.
+    background_ax = figure.add_axes([0.0, 0.0, 1.0, 1.0], zorder=-10)
+    background_ax.set_xlim(0.0, 1.0)
+    background_ax.set_ylim(0.0, 1.0)
+    background_ax.axis("off")
 
+    colour_map = LinearSegmentedColormap.from_list(
+        "am_gradient",
+        [BRAND_AMBER, BRAND_ARCELOR_ORANGE, BRAND_RED, BRAND_MAGENTA],
+    )
+    horizontal_gradient = np.linspace(0.0, 1.0, 1200).reshape(1, -1)
+
+    bottom_gradient = background_ax.imshow(
+        horizontal_gradient,
+        extent=[0.0, 1.0, 0.0, 0.105],
+        aspect="auto",
+        origin="lower",
+        cmap=colour_map,
+    )
+    bottom_clip = Polygon(
+        [(0.0, 0.0), (0.62, 0.0), (0.53, 0.105), (0.08, 0.105)],
+        closed=True,
+        transform=background_ax.transData,
+    )
+    bottom_gradient.set_clip_path(bottom_clip)
+
+    top_gradient = background_ax.imshow(
+        horizontal_gradient,
+        extent=[0.72, 1.0, 0.84, 0.97],
+        aspect="auto",
+        origin="lower",
+        cmap=colour_map,
+    )
+    top_clip = Polygon(
+        [(0.78, 0.97), (1.0, 0.97), (1.0, 0.84), (0.72, 0.86)],
+        closed=True,
+        transform=background_ax.transData,
+    )
+    top_gradient.set_clip_path(top_clip)
+
+    # Official logos supplied by the user.
     if ASL_LOGO_PATH.exists():
-        logo_ax = figure.add_axes([0.03, 0.83, 0.28, 0.12])
+        logo_ax = figure.add_axes([0.045, 0.845, 0.30, 0.105])
         logo_ax.imshow(plt.imread(ASL_LOGO_PATH))
         logo_ax.axis("off")
 
     if ARCELOR_LOGO_PATH.exists():
-        logo_ax = figure.add_axes([0.79, 0.84, 0.16, 0.09])
+        logo_ax = figure.add_axes([0.79, 0.845, 0.16, 0.10])
         logo_ax.imshow(plt.imread(ARCELOR_LOGO_PATH))
         logo_ax.axis("off")
 
     figure.text(
-        0.34,
-        0.914,
+        0.05,
+        0.815,
         "Trimline Gutter Section",
-        fontsize=20,
+        fontsize=23,
         fontweight="bold",
-        color=BRAND_CHARCOAL,
+        color="#111111",
         ha="left",
         va="top",
     )
     figure.text(
-        0.34,
-        0.882,
-        "Project issue sheet",
-        fontsize=11.5,
-        color=BRAND_RED,
+        0.05,
+        0.775,
+        "Technical section and project issue information",
+        fontsize=12.5,
+        color=BRAND_CHARCOAL,
         ha="left",
         va="top",
+    )
+    figure.add_artist(
+        Rectangle(
+            (0.05, 0.747),
+            0.90,
+            0.004,
+            transform=figure.transFigure,
+            facecolor=BRAND_ARCELOR_ORANGE,
+            edgecolor="none",
+        )
     )
 
     left_items = [
@@ -833,14 +1020,14 @@ def generate_section_pdf(
     _draw_pdf_info_block(
         figure,
         x=0.05,
-        y_top=0.79,
+        y_top=0.71,
         title="Project details",
         items=left_items,
     )
     _draw_pdf_info_block(
         figure,
         x=0.56,
-        y_top=0.79,
+        y_top=0.71,
         title="Requester details",
         items=right_items,
     )
@@ -854,7 +1041,7 @@ def generate_section_pdf(
     )
     figure.text(
         0.56,
-        0.645,
+        0.565,
         f"Prepared by: {prepared_by or '—'}",
         fontsize=9.2,
         color=BRAND_CHARCOAL,
@@ -866,7 +1053,7 @@ def generate_section_pdf(
     if notes != "—":
         figure.text(
             0.05,
-            0.645,
+            0.565,
             "Notes:",
             fontsize=9.5,
             fontweight="bold",
@@ -876,7 +1063,7 @@ def generate_section_pdf(
         )
         figure.text(
             0.12,
-            0.645,
+            0.565,
             fill(notes, 84),
             fontsize=9.2,
             color=BRAND_CHARCOAL,
@@ -884,68 +1071,109 @@ def generate_section_pdf(
             va="top",
         )
 
-    section_ax = figure.add_axes([0.06, 0.18, 0.88, 0.42])
+    section_ax = figure.add_axes([0.06, 0.205, 0.88, 0.33])
     section_ax.imshow(section_image)
     section_ax.axis("off")
 
+    # Contact area follows the brochure's 'Get in touch' page.
     figure.text(
-        0.06,
-        0.15,
-        "Company contact",
-        fontsize=10.5,
+        0.05,
+        0.185,
+        "Get in touch",
+        fontsize=10.8,
         fontweight="bold",
-        color=BRAND_BLUE,
+        color="#111111",
         ha="left",
         va="top",
     )
     figure.text(
-        0.06,
-        0.125,
-        COMPANY_NAME,
-        fontsize=9.5,
+        0.05,
+        0.158,
+        "Manchester",
+        fontsize=9.4,
+        fontweight="bold",
         color=BRAND_CHARCOAL,
         ha="left",
         va="top",
     )
-
-    footer_y = 0.102
-    for line in COMPANY_CONTACT_LINES:
-        figure.text(
-            0.06,
-            footer_y,
-            line,
-            fontsize=8.7,
-            color=BRAND_CHARCOAL,
-            ha="left",
-            va="top",
-        )
-        footer_y -= 0.021
-
     figure.text(
-        0.06,
-        0.058,
-        COMPANY_WEBSITE,
-        fontsize=9.0,
-        color=BRAND_BLUE,
+        0.15,
+        0.158,
+        "Lyons Road, Trafford Park, M17 1RN, United Kingdom\\n"
+        "Sales Office: 0161 872 6333  |  info@archsteel.co.uk",
+        fontsize=8.5,
+        color=BRAND_CHARCOAL,
+        ha="left",
+        va="top",
+        linespacing=1.3,
+    )
+    figure.text(
+        0.53,
+        0.158,
+        "Glasgow",
+        fontsize=9.4,
+        fontweight="bold",
+        color=BRAND_CHARCOAL,
         ha="left",
         va="top",
     )
+    figure.text(
+        0.60,
+        0.158,
+        "Suite F, Campsie Softnet Centre, Enterprise House, Kirkintilloch, G66 1XQ\\n"
+        "Sales Office: 0141 530 1485  |  info.uk@arcelormittal.com",
+        fontsize=8.3,
+        color=BRAND_CHARCOAL,
+        ha="left",
+        va="top",
+        linespacing=1.3,
+    )
 
+    figure.text(
+        0.05,
+        0.060,
+        COMPANY_TAGLINE,
+        fontsize=11.0,
+        fontweight="bold",
+        color="#000000",
+        ha="left",
+        va="center",
+    )
+    figure.text(
+        0.05,
+        0.038,
+        PRODUCT_TAGLINE,
+        fontsize=9.4,
+        fontweight="bold",
+        color="#000000",
+        ha="left",
+        va="center",
+    )
     figure.text(
         0.94,
-        0.058,
-        f"DXF file: {Path(dxf_filename).name}",
-        fontsize=8.7,
-        color=BRAND_CHARCOAL,
+        0.060,
+        COMPANY_WEBSITE,
+        fontsize=8.8,
+        fontweight="bold",
+        color=BRAND_STEEL_GREY,
         ha="right",
-        va="top",
+        va="center",
+    )
+    figure.text(
+        0.94,
+        0.035,
+        f"DXF file: {Path(dxf_filename).name}",
+        fontsize=8.2,
+        color=BRAND_STEEL_GREY,
+        ha="right",
+        va="center",
     )
 
     figure.savefig(
         pdf_buffer,
         format="pdf",
         bbox_inches="tight",
-        pad_inches=0.2,
+        pad_inches=0.15,
         facecolor="white",
     )
     plt.close(figure)
@@ -1261,7 +1489,7 @@ with st.form("profile_form"):
     }
 
     submitted = st.form_submit_button(
-        "Generate DXF",
+        "Generate DXF and PDF",
         type="primary",
         use_container_width=True,
     )
@@ -1457,6 +1685,8 @@ if (
             use_container_width=True,
         )
 
+
+_show_company_footer()
 
 with st.expander("Deployment and file information"):
     st.markdown(
