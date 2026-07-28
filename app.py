@@ -348,7 +348,7 @@ with account_column:
         st.logout()
 
 
-APP_REVISION = "2026-07-28-STYLE-V10"
+APP_REVISION = "2026-07-28-STYLE-V11"
 
 
 def _current_user_identity() -> tuple[str, str]:
@@ -918,7 +918,7 @@ def generate_section_pdf(
     dxf_filename: str,
     project_info: dict[str, object],
 ) -> tuple[bytes, str]:
-    """Create a brochure-inspired branded section PDF."""
+    """Create a branded A4 portrait PDF with a larger section preview."""
     section_buffer = BytesIO()
     section_figure = create_section_figure(
         result,
@@ -928,9 +928,9 @@ def generate_section_pdf(
     section_figure.savefig(
         section_buffer,
         format="png",
-        dpi=220,
+        dpi=240,
         bbox_inches="tight",
-        pad_inches=0.2,
+        pad_inches=0.20,
         facecolor="white",
     )
     plt.close(section_figure)
@@ -938,26 +938,25 @@ def generate_section_pdf(
     section_image = plt.imread(section_buffer)
 
     pdf_buffer = BytesIO()
-    figure = plt.figure(figsize=(11.69, 8.27), facecolor="white")
+    figure = plt.figure(figsize=(8.27, 11.69), facecolor="white")
 
-    # Clean white PDF page: no gradient background or top colour bars.
-
-    # Official logos supplied by the user.
+    # Logos
     if ASL_LOGO_PATH.exists():
-        logo_ax = figure.add_axes([0.045, 0.845, 0.30, 0.105])
+        logo_ax = figure.add_axes([0.05, 0.905, 0.36, 0.070])
         logo_ax.imshow(plt.imread(ASL_LOGO_PATH))
         logo_ax.axis("off")
 
     if ARCELOR_LOGO_PATH.exists():
-        logo_ax = figure.add_axes([0.79, 0.845, 0.16, 0.10])
+        logo_ax = figure.add_axes([0.70, 0.915, 0.20, 0.050])
         logo_ax.imshow(plt.imread(ARCELOR_LOGO_PATH))
         logo_ax.axis("off")
 
+    # Title area
     figure.text(
         0.05,
-        0.815,
+        0.882,
         "Trimline Gutter Section",
-        fontsize=23,
+        fontsize=25,
         fontweight="bold",
         color="#111111",
         ha="left",
@@ -965,18 +964,18 @@ def generate_section_pdf(
     )
     figure.text(
         0.05,
-        0.775,
+        0.855,
         "Technical section and project issue information",
-        fontsize=12.5,
+        fontsize=13,
         color=BRAND_CHARCOAL,
         ha="left",
         va="top",
     )
     figure.add_artist(
         Rectangle(
-            (0.05, 0.747),
+            (0.05, 0.833),
             0.90,
-            0.004,
+            0.0035,
             transform=figure.transFigure,
             facecolor=BRAND_ARCELOR_ORANGE,
             edgecolor="none",
@@ -999,14 +998,14 @@ def generate_section_pdf(
     _draw_pdf_info_block(
         figure,
         x=0.05,
-        y_top=0.71,
+        y_top=0.807,
         title="Project details",
         items=left_items,
     )
     _draw_pdf_info_block(
         figure,
         x=0.56,
-        y_top=0.71,
+        y_top=0.807,
         title="Requester details",
         items=right_items,
     )
@@ -1018,9 +1017,35 @@ def generate_section_pdf(
         ]
         if item and item != "—"
     )
+
+    notes = _display_text(project_info.get("requester_notes"))
+    note_y = 0.693
+
+    if notes != "—":
+        figure.text(
+            0.05,
+            note_y,
+            "Notes:",
+            fontsize=9.7,
+            fontweight="bold",
+            color=BRAND_CHARCOAL,
+            ha="left",
+            va="top",
+        )
+        figure.text(
+            0.13,
+            note_y,
+            fill(notes, 58),
+            fontsize=9.2,
+            color=BRAND_CHARCOAL,
+            ha="left",
+            va="top",
+            linespacing=1.30,
+        )
+
     figure.text(
         0.56,
-        0.565,
+        note_y,
         f"Prepared by: {prepared_by or '—'}",
         fontsize=9.2,
         color=BRAND_CHARCOAL,
@@ -1028,36 +1053,35 @@ def generate_section_pdf(
         va="top",
     )
 
-    notes = _display_text(project_info.get("requester_notes"))
-    if notes != "—":
-        figure.text(
-            0.05,
-            0.565,
-            "Notes:",
-            fontsize=9.5,
-            fontweight="bold",
-            color=BRAND_CHARCOAL,
-            ha="left",
-            va="top",
-        )
-        figure.text(
-            0.12,
-            0.565,
-            fill(notes, 84),
-            fontsize=9.2,
-            color=BRAND_CHARCOAL,
-            ha="left",
-            va="top",
-        )
-
-    section_ax = figure.add_axes([0.06, 0.205, 0.88, 0.33])
+    # Drawing area
+    figure.text(
+        0.05,
+        0.655,
+        "Section preview",
+        fontsize=11.5,
+        fontweight="bold",
+        color=BRAND_ARCELOR_ORANGE,
+        ha="left",
+        va="top",
+    )
+    section_ax = figure.add_axes([0.08, 0.305, 0.84, 0.325])
     section_ax.imshow(section_image)
     section_ax.axis("off")
 
-    # Contact area follows the brochure's 'Get in touch' page.
+    # Contact area
+    figure.add_artist(
+        Rectangle(
+            (0.05, 0.215),
+            0.90,
+            0.0015,
+            transform=figure.transFigure,
+            facecolor=BRAND_GREY_3,
+            edgecolor="none",
+        )
+    )
     figure.text(
         0.05,
-        0.185,
+        0.195,
         "Get in touch",
         fontsize=10.8,
         fontweight="bold",
@@ -1065,54 +1089,60 @@ def generate_section_pdf(
         ha="left",
         va="top",
     )
+
     figure.text(
         0.05,
-        0.158,
+        0.172,
         "Manchester",
-        fontsize=9.4,
+        fontsize=9.6,
         fontweight="bold",
         color=BRAND_CHARCOAL,
         ha="left",
         va="top",
     )
     figure.text(
-        0.15,
+        0.05,
         0.158,
-        "Lyons Road, Trafford Park, M17 1RN, United Kingdom\\n"
-        "Sales Office: 0161 872 6333  |  info@archsteel.co.uk",
-        fontsize=8.5,
+        "Lyons Road, Trafford Park,\nManchester M17 1RN, United Kingdom\n"
+        "Sales Office: 0161 872 6333\n"
+        "info@archsteel.co.uk",
+        fontsize=8.8,
         color=BRAND_CHARCOAL,
         ha="left",
         va="top",
-        linespacing=1.3,
+        linespacing=1.33,
+    )
+
+    figure.text(
+        0.53,
+        0.172,
+        "Glasgow",
+        fontsize=9.6,
+        fontweight="bold",
+        color=BRAND_CHARCOAL,
+        ha="left",
+        va="top",
     )
     figure.text(
         0.53,
         0.158,
-        "Glasgow",
-        fontsize=9.4,
-        fontweight="bold",
+        "Suite F, Campsie Softnet Centre, Enterprise House,\n"
+        "Kirkintilloch, G66 1XQ\n"
+        "Sales Office: 0141 530 1485\n"
+        "info.uk@arcelormittal.com",
+        fontsize=8.8,
         color=BRAND_CHARCOAL,
         ha="left",
         va="top",
-    )
-    figure.text(
-        0.60,
-        0.158,
-        "Suite F, Campsie Softnet Centre, Enterprise House, Kirkintilloch, G66 1XQ\\n"
-        "Sales Office: 0141 530 1485  |  info.uk@arcelormittal.com",
-        fontsize=8.3,
-        color=BRAND_CHARCOAL,
-        ha="left",
-        va="top",
-        linespacing=1.3,
+        linespacing=1.33,
     )
 
+    # Footer
     figure.text(
         0.05,
-        0.060,
+        0.080,
         COMPANY_TAGLINE,
-        fontsize=11.0,
+        fontsize=11.2,
         fontweight="bold",
         color="#000000",
         ha="left",
@@ -1120,17 +1150,17 @@ def generate_section_pdf(
     )
     figure.text(
         0.05,
-        0.038,
+        0.062,
         PRODUCT_TAGLINE,
-        fontsize=9.4,
+        fontsize=9.6,
         fontweight="bold",
         color="#000000",
         ha="left",
         va="center",
     )
     figure.text(
-        0.94,
-        0.060,
+        0.95,
+        0.080,
         COMPANY_WEBSITE,
         fontsize=8.8,
         fontweight="bold",
@@ -1139,10 +1169,10 @@ def generate_section_pdf(
         va="center",
     )
     figure.text(
-        0.94,
-        0.035,
+        0.95,
+        0.062,
         f"DXF file: {Path(dxf_filename).name}",
-        fontsize=8.2,
+        fontsize=8.3,
         color=BRAND_STEEL_GREY,
         ha="right",
         va="center",
@@ -1151,8 +1181,6 @@ def generate_section_pdf(
     figure.savefig(
         pdf_buffer,
         format="pdf",
-        bbox_inches="tight",
-        pad_inches=0.15,
         facecolor="white",
     )
     plt.close(figure)
