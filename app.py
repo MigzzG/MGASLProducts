@@ -348,7 +348,7 @@ with account_column:
         st.logout()
 
 
-APP_REVISION = "2026-07-28-STYLE-V16"
+APP_REVISION = "2026-07-28-STYLE-V17"
 
 
 def _current_user_identity() -> tuple[str, str]:
@@ -1017,7 +1017,7 @@ def generate_section_pdf(
     if notes != "—":
         figure.text(
             0.05,
-            0.690,
+            0.666,
             "Notes:",
             fontsize=9.3,
             fontweight="bold",
@@ -1027,19 +1027,19 @@ def generate_section_pdf(
         )
         figure.text(
             0.05,
-            0.674,
-            fill(notes, 96),
+            0.648,
+            fill(notes, 104),
             fontsize=8.8,
             color=BRAND_CHARCOAL,
             ha="left",
             va="top",
-            linespacing=1.28,
+            linespacing=1.30,
         )
 
     # Drawing area
     figure.text(
         0.05,
-        0.628,
+        0.602,
         "Section preview",
         fontsize=11.5,
         fontweight="bold",
@@ -1047,7 +1047,7 @@ def generate_section_pdf(
         ha="left",
         va="top",
     )
-    section_ax = figure.add_axes([0.08, 0.272, 0.84, 0.338])
+    section_ax = figure.add_axes([0.08, 0.248, 0.84, 0.340])
     section_ax.imshow(section_image, interpolation="none")
     section_ax.axis("off")
 
