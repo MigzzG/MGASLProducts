@@ -348,7 +348,7 @@ with account_column:
         st.logout()
 
 
-APP_REVISION = "2026-07-28-STYLE-V15"
+APP_REVISION = "2026-07-28-STYLE-V16"
 
 
 def _current_user_identity() -> tuple[str, str]:
@@ -991,9 +991,11 @@ def generate_section_pdf(
     right_items = [
         ("Requested by", project_info.get("requested_by")),
         ("Requester company", project_info.get("requester_company")),
-        ("Requester email", project_info.get("requester_email")),
-        ("Requester phone", project_info.get("requester_phone")),
     ]
+    if str(project_info.get("requester_email", "")).strip():
+        right_items.append(("Requester email", project_info.get("requester_email")))
+    if str(project_info.get("requester_phone", "")).strip():
+        right_items.append(("Requester phone", project_info.get("requester_phone")))
 
     _draw_pdf_info_block(
         figure,
@@ -1010,53 +1012,34 @@ def generate_section_pdf(
         items=right_items,
     )
 
-    prepared_by = " / ".join(
-        item for item in [
-            _display_text(project_info.get("prepared_by_name")),
-            _display_text(project_info.get("prepared_by_email")),
-        ]
-        if item and item != "—"
-    )
-
     notes = _display_text(project_info.get("requester_notes"))
-    note_y = 0.693
 
     if notes != "—":
         figure.text(
             0.05,
-            note_y,
+            0.690,
             "Notes:",
-            fontsize=9.7,
+            fontsize=9.3,
             fontweight="bold",
             color=BRAND_CHARCOAL,
             ha="left",
             va="top",
         )
         figure.text(
-            0.13,
-            note_y,
-            fill(notes, 58),
-            fontsize=9.2,
+            0.05,
+            0.674,
+            fill(notes, 96),
+            fontsize=8.8,
             color=BRAND_CHARCOAL,
             ha="left",
             va="top",
-            linespacing=1.30,
+            linespacing=1.28,
         )
-
-    figure.text(
-        0.56,
-        0.665,
-        f"Prepared by: {prepared_by or '—'}",
-        fontsize=8.6,
-        color=BRAND_CHARCOAL,
-        ha="left",
-        va="top",
-    )
 
     # Drawing area
     figure.text(
         0.05,
-        0.655,
+        0.628,
         "Section preview",
         fontsize=11.5,
         fontweight="bold",
@@ -1064,7 +1047,7 @@ def generate_section_pdf(
         ha="left",
         va="top",
     )
-    section_ax = figure.add_axes([0.08, 0.305, 0.84, 0.325])
+    section_ax = figure.add_axes([0.08, 0.272, 0.84, 0.338])
     section_ax.imshow(section_image, interpolation="none")
     section_ax.axis("off")
 
