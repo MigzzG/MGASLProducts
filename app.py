@@ -348,7 +348,7 @@ with account_column:
         st.logout()
 
 
-APP_REVISION = "2026-07-28-STYLE-V17"
+APP_REVISION = "2026-07-28-STYLE-V18"
 
 
 def _current_user_identity() -> tuple[str, str]:
@@ -883,6 +883,48 @@ def create_section_figure(
             "edgecolor": "none",
             "alpha": 0.88,
             "pad": 2.0,
+        },
+    )
+
+    # Simple vertical dimension from the top of C to the bottom of D.
+    c_top = front[3]
+    d_bottom = front[5]
+    vertical_dimension = abs(c_top[1] - d_bottom[1])
+    dimension_x = minimum_x - max(width * 0.11, 18.0)
+    tick_length = max(width * 0.032, 6.0)
+
+    ax.plot(
+        [dimension_x, dimension_x],
+        [d_bottom[1], c_top[1]],
+        linewidth=1.3,
+        color=profile_colour,
+    )
+    ax.plot(
+        [dimension_x - tick_length, dimension_x + tick_length],
+        [c_top[1], c_top[1]],
+        linewidth=1.3,
+        color=profile_colour,
+    )
+    ax.plot(
+        [dimension_x - tick_length, dimension_x + tick_length],
+        [d_bottom[1], d_bottom[1]],
+        linewidth=1.3,
+        color=profile_colour,
+    )
+    ax.text(
+        dimension_x - tick_length * 1.20,
+        (c_top[1] + d_bottom[1]) / 2.0,
+        f"{_format_number(vertical_dimension)} mm",
+        horizontalalignment="center",
+        verticalalignment="center",
+        rotation=90,
+        fontsize=9.8 if not for_pdf else 10.8,
+        color=text_colour,
+        bbox={
+            "facecolor": "white",
+            "edgecolor": "none",
+            "alpha": 0.88,
+            "pad": 1.4,
         },
     )
 
@@ -1536,27 +1578,10 @@ try:
     metric_3.metric("Calculated BC", f"{preview.angle_bc:.2f}°")
     metric_4.metric("Calculated FG", f"{_format_number(90.0 - parameters['ROOF_PITCH'])}°")
 
-    preview_col, small_end_col = st.columns([1.6, 1.0])
-
-    with preview_col:
-        st.subheader("Section preview")
-        figure = create_section_figure(preview, parameters)
-        st.pyplot(figure, clear_figure=True)
-        plt.close(figure)
-
-    with small_end_col:
-        st.subheader("Calculated small end")
-        st.dataframe(
-            {
-                "Face": list(preview.small_end.keys()),
-                "Dimension (mm)": [
-                    round(value, 3)
-                    for value in preview.small_end.values()
-                ],
-            },
-            hide_index=True,
-            use_container_width=True,
-        )
+    st.subheader("Section preview")
+    figure = create_section_figure(preview, parameters)
+    st.pyplot(figure, clear_figure=True)
+    plt.close(figure)
 
 except Exception as exc:
     preview = None
