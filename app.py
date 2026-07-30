@@ -348,7 +348,7 @@ with account_column:
         st.logout()
 
 
-APP_REVISION = "2026-07-28-STYLE-V18"
+APP_REVISION = "2026-07-28-STYLE-V19"
 
 
 def _current_user_identity() -> tuple[str, str]:
@@ -914,7 +914,7 @@ def create_section_figure(
     ax.text(
         dimension_x - tick_length * 1.20,
         (c_top[1] + d_bottom[1]) / 2.0,
-        f"{_format_number(vertical_dimension)} mm",
+        f"{int(round(vertical_dimension))} mm",
         horizontalalignment="center",
         verticalalignment="center",
         rotation=90,
